@@ -10,7 +10,14 @@ import android.widget.ImageView
  * @author Lx
  * Create on 2018/7/29.
  */
-class ParallexImageView : ImageView {
+class ParallaxImageView : ImageView {
+
+    private val mComponent: ParallaxComponent
+
+    init {
+        mComponent = object : ParallaxComponent {}
+    }
+
     constructor(context: Context?) : super(context)
     constructor(context: Context?, attrs: AttributeSet?) : super(context, attrs)
     constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr)
@@ -18,11 +25,11 @@ class ParallexImageView : ImageView {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        GyroscopeSensorManager.ins.register(this@ParallexImageView)
+        GyroscopeSensorManager.ins.attach(mComponent)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        GyroscopeSensorManager.ins.unregister(this@ParallexImageView)
+        GyroscopeSensorManager.ins.detach(mComponent)
     }
 }
