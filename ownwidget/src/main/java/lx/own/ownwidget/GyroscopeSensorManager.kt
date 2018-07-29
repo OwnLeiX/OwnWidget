@@ -5,8 +5,6 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener2
 import android.hardware.SensorManager
-import android.support.graphics.drawable.PathInterpolatorCompat.EPSILON
-import java.lang.Math.*
 import java.util.concurrent.LinkedBlockingQueue
 
 /**
@@ -17,7 +15,7 @@ import java.util.concurrent.LinkedBlockingQueue
  */
 class GyroscopeSensorManager private constructor() {
     companion object {
-        public val ins: GyroscopeSensorManager by lazy { GyroscopeSensorManager() }
+        val ins: GyroscopeSensorManager by lazy { GyroscopeSensorManager() }
     }
 
     private var preStamp: Long = 0L
@@ -34,34 +32,12 @@ class GyroscopeSensorManager private constructor() {
         }
 
         override fun onSensorChanged(event: SensorEvent?) {
-            if (event == null) return
+            if (event == null || event.sensor.type != Sensor.TYPE_GYROSCOPE) return
             if (preStamp != 0L) {
                 val dT: Float = (event.timestamp - preStamp) * NS2S
-                var axisX: Float = event.values[0]
-                var axisY: Float = event.values[1]
-                var axisZ: Float = event.values[2]
-
-                // Calculate the angular speed of the sample
-                val omegaMagnitude: Float = sqrt((axisX * axisX + axisY * axisY + axisZ * axisZ).toDouble()).toFloat()
-
-                // Normalize the rotation vector if it's big enough to get the axis
-                if (omegaMagnitude > EPSILON) {
-                    axisX /= omegaMagnitude
-                    axisY /= omegaMagnitude
-                    axisZ /= omegaMagnitude
-                }
-
-                // Integrate around this axis with the angular speed by the time step
-                // in order to get a delta rotation from this sample over the time step
-                // We will convert this axis-angle representation of the delta rotation
-                // into a quaternion before turning it into the rotation matrix.
-                var thetaOverTwo: Float = omegaMagnitude * dT / 2.0f
-                var sinThetaOverTwo: Float = sin(thetaOverTwo.toDouble()).toFloat()
-                var cosThetaOverTwo: Float = cos(thetaOverTwo.toDouble()).toFloat()
-                deltaRotationVector[0] = sinThetaOverTwo * axisX
-                deltaRotationVector[1] = sinThetaOverTwo * axisY
-                deltaRotationVector[2] = sinThetaOverTwo * axisZ
-                deltaRotationVector[3] = cosThetaOverTwo
+                var radiansX: Float = event.values[0] * dT
+                var radiansY: Float = event.values[1] * dT
+                var radiansZ: Float = event.values[2] * dT
             }
             preStamp = event.timestamp
         }
