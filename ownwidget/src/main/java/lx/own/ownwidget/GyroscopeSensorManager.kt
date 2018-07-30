@@ -88,7 +88,7 @@ class GyroscopeSensorManager private constructor() {
     @MainThread
     private fun registerListener() {
         val sensor = _sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        _sensorManager.registerListener(_sensorListener, sensor, SensorManager.SENSOR_DELAY_GAME)
+        _sensorManager.registerListener(_sensorListener, sensor, SensorManager.SENSOR_DELAY_FASTEST)
         _isRegistered = true
     }
 

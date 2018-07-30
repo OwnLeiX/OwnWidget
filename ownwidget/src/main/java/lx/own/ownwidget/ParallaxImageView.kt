@@ -21,22 +21,22 @@ class ParallaxImageView : ImageView {
     private val _component: ParallaxComponent
     private var _rotateX: Float
     private var _rotateY: Float
-    private var _drawableWidthOffset: Int
-    private var _drawableHeightOffset: Int
+    private var _drawableWidthOffset: Float
+    private var _drawableHeightOffset: Float
     private var _width: Int
     private var _height: Int
 
     init {
         _rotateX = 0.0F
         _rotateY = 0.0F
-        _drawableWidthOffset = -1
-        _drawableHeightOffset = -1
+        _drawableWidthOffset = 0.0F
+        _drawableHeightOffset = 0.0F
         _width = -1
         _height = -1
         _component = object : ParallaxComponent {
             override fun updateRotateRadians(radiansX: Float, radiansY: Float, radiansZ: Float) {
-                _rotateX = validRadian(radiansX + _rotateX, maxRadians, minRadians)
-                _rotateY = validRadian(radiansY + _rotateY, maxRadians, minRadians)
+                _rotateX = validValue(radiansX + _rotateX, maxRadians, minRadians)
+                _rotateY = validValue(radiansY + _rotateY, maxRadians, minRadians)
                 postInvalidate()
             }
 
@@ -61,36 +61,36 @@ class ParallaxImageView : ImageView {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         scaleType = ScaleType.CENTER_CROP
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        _drawableWidthOffset = -1
-        _drawableHeightOffset = -1
-        drawable?.let {
+        _drawableWidthOffset = 0.0F
+        _drawableHeightOffset = 0.0F
+        if (drawable != null) {
+            val it = drawable!!
             var drawableWidth = it.intrinsicWidth
             var drawableHeight = it.intrinsicHeight
-            val drawableRatios = drawableWidth / drawableHeight
-            val viewRatios = measuredWidth / measuredHeight
-            if (drawableRatios > viewRatios) {
-                //对齐高度
-                drawableHeight = measuredHeight
-                drawableWidth = measuredHeight * drawableRatios
-            } else {
-                //对齐宽度
-                drawableHeight = measuredWidth / drawableRatios
-                drawableWidth = measuredWidth
+            if (drawableWidth > 0 && drawableHeight > 0) {
+                val drawableRatios = drawableWidth.toFloat() / drawableHeight
+                val viewRatios = measuredWidth.toFloat() / measuredHeight
+                if (drawableRatios > viewRatios) {
+                    //对齐高度
+                    drawableHeight = measuredHeight
+                    drawableWidth = (measuredHeight * drawableRatios + 0.5f).toInt()
+                } else {
+                    //对齐宽度
+                    drawableHeight = (measuredWidth / drawableRatios + 0.5f).toInt()
+                    drawableWidth = measuredWidth
+                }
+                _drawableWidthOffset = (drawableWidth - measuredWidth) / 2.0f
+                _drawableHeightOffset = (drawableHeight - measuredHeight) / 2.0f
             }
-            _drawableWidthOffset = if (drawableWidth > 0) (drawableWidth - measuredWidth) / 2 else -1
-            _drawableHeightOffset = if (drawableHeight > 0) (drawableHeight - measuredHeight) / 2 else -1
         }
-    }
-
-    override fun setImageResource(resId: Int) {
-        super.setImageResource(resId)
-        requestLayout()
     }
 
     override fun onDraw(canvas: Canvas?) {
         if (_rotateX != 0.0F || _rotateY != 0.0F) {
             canvas?.save()
-            canvas?.translate(_drawableWidthOffset * _rotateY, _drawableHeightOffset * _rotateX)
+            canvas?.translate(validValue(_drawableWidthOffset * _rotateY, _drawableWidthOffset, -_drawableWidthOffset),
+                    validValue(_drawableHeightOffset * _rotateX, _drawableHeightOffset, -_drawableHeightOffset)
+            )
             super.onDraw(canvas)
             canvas?.restore()
         } else {
@@ -98,7 +98,7 @@ class ParallaxImageView : ImageView {
         }
     }
 
-    private fun validRadian(radian: Float, max: Float, min: Float): Float = when {
+    private fun validValue(radian: Float, max: Float, min: Float): Float = when {
         radian > max -> max
         radian in min..max -> radian
         else -> min
