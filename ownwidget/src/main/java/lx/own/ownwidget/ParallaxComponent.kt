@@ -10,4 +10,5 @@ import android.content.Context
  */
 interface ParallaxComponent {
     fun provideContext(): Context?
+    fun updateRotateRadians(radiansX: Float, radiansY: Float, radiansZ: Float)
 }

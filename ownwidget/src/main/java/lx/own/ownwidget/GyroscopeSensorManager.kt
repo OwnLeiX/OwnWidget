@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener2
 import android.hardware.SensorManager
+import android.support.annotation.MainThread
 import java.util.concurrent.LinkedBlockingQueue
 
 /**
@@ -18,57 +19,82 @@ class GyroscopeSensorManager private constructor() {
         val ins: GyroscopeSensorManager by lazy { GyroscopeSensorManager() }
     }
 
-    private var preStamp: Long = 0L
-    private val mAttachedComponents: LinkedBlockingQueue<ParallaxComponent> = LinkedBlockingQueue()
-    private lateinit var mSensorManager: SensorManager
+    private var _lastTimeStamp: Long
+    private val _nanoseconds2Seconds: Float
+    private var _isRegistered: Boolean
 
-    private val NS2S: Float = 1.0f / 1000000000.0f;
-    private val deltaRotationVector: FloatArray = FloatArray(4)
-    private val mSensorListener: SensorEventListener2 = object : SensorEventListener2 {
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        }
+    private val _attachedComponents: LinkedBlockingQueue<ParallaxComponent>
 
-        override fun onFlushCompleted(sensor: Sensor?) {
-        }
+    private lateinit var _sensorManager: SensorManager
+    private val _sensorListener: SensorEventListener2
 
-        override fun onSensorChanged(event: SensorEvent?) {
-            if (event == null || event.sensor.type != Sensor.TYPE_GYROSCOPE) return
-            if (preStamp != 0L) {
-                val dT: Float = (event.timestamp - preStamp) * NS2S
-                var radiansX: Float = event.values[0] * dT
-                var radiansY: Float = event.values[1] * dT
-                var radiansZ: Float = event.values[2] * dT
+    init {
+        _lastTimeStamp = 0L
+        _nanoseconds2Seconds = 1.0f / 1000000000.0f
+        _isRegistered = false
+        _attachedComponents = LinkedBlockingQueue()
+        _sensorListener = object : SensorEventListener2 {
+
+            @MainThread
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
             }
-            preStamp = event.timestamp
+
+            @MainThread
+            override fun onFlushCompleted(sensor: Sensor?) {
+            }
+
+            @MainThread
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event == null || event.sensor.type != Sensor.TYPE_GYROSCOPE) return
+                if (_lastTimeStamp != 0L) {
+                    if (_attachedComponents.size > 0) {
+                        val dTime: Float = (event.timestamp - _lastTimeStamp) * _nanoseconds2Seconds
+                        val radiansX: Float = event.values[0] * dTime
+                        val radiansY: Float = event.values[1] * dTime
+                        val radiansZ: Float = event.values[2] * dTime
+                        _attachedComponents.forEach {
+                            it.updateRotateRadians(radiansX, radiansY, radiansZ)
+                        }
+                    }
+                }
+                _lastTimeStamp = event.timestamp
+            }
         }
     }
 
+    @MainThread
     fun attach(cmp: ParallaxComponent) {
-        if (!this@GyroscopeSensorManager::mSensorManager.isInitialized) {
+        if (!this@GyroscopeSensorManager::_sensorManager.isInitialized)
             initSensorManager(cmp.provideContext())
+        _attachedComponents.offer(cmp)
+        if (!_isRegistered)
             registerListener()
-        }
-        mAttachedComponents.offer(cmp)
     }
 
+    @MainThread
     fun detach(cmp: ParallaxComponent) {
-        mAttachedComponents.remove(cmp)
-        if (mAttachedComponents.size == 0 && this@GyroscopeSensorManager::mSensorManager.isInitialized)
+        _attachedComponents.remove(cmp)
+        if (_attachedComponents.size == 0 && _isRegistered)
             unregisterListener()
     }
 
+    @MainThread
     private fun initSensorManager(context: Context?) {
         val service = context?.applicationContext?.getSystemService(Context.SENSOR_SERVICE)
         if (service is SensorManager)
-            mSensorManager = service
+            _sensorManager = service
     }
 
+    @MainThread
     private fun registerListener() {
-        val sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        mSensorManager.registerListener(mSensorListener, sensor, SensorManager.SENSOR_DELAY_GAME)
+        val sensor = _sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        _sensorManager.registerListener(_sensorListener, sensor, SensorManager.SENSOR_DELAY_GAME)
+        _isRegistered = true
     }
 
+    @MainThread
     private fun unregisterListener() {
-        mSensorManager.unregisterListener(mSensorListener)
+        _sensorManager.unregisterListener(_sensorListener)
+        _isRegistered = false
     }
 }
