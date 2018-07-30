@@ -74,20 +74,20 @@ class ParallaxImageView : ImageView {
             _drawableHeightOffset = 0.0F
             if (drawable != null) {
                 val it = drawable!!
-                var drawableWidth = it.intrinsicWidth
-                var drawableHeight = it.intrinsicHeight
+                var drawableWidth = it.intrinsicWidth.toFloat()
+                var drawableHeight = it.intrinsicHeight.toFloat()
                 if (drawableWidth > 0 && drawableHeight > 0) {
-                    val drawableRatios = drawableWidth.toFloat() / drawableHeight
+                    val drawableRatios = drawableWidth / drawableHeight
                     val viewRatios = measuredWidth.toFloat() / measuredHeight
                     if (drawableRatios > viewRatios) {
-                        drawableHeight = measuredHeight
-                        drawableWidth = (measuredHeight * drawableRatios + 0.5f).toInt()
+                        drawableHeight = measuredHeight.toFloat()
+                        drawableWidth = measuredHeight * drawableRatios
                     } else {
-                        drawableHeight = (measuredWidth / drawableRatios + 0.5f).toInt()
-                        drawableWidth = measuredWidth
+                        drawableHeight = measuredWidth / drawableRatios
+                        drawableWidth = measuredWidth.toFloat()
                     }
-                    _drawableWidthOffset = (drawableWidth - measuredWidth) / 2.0f
-                    _drawableHeightOffset = (drawableHeight - measuredHeight) / 2.0f
+                    _drawableWidthOffset = Math.abs((drawableWidth - measuredWidth) / 2.0f)
+                    _drawableHeightOffset = Math.abs((drawableHeight - measuredHeight) / 2.0f)
                 }
             }
         }
