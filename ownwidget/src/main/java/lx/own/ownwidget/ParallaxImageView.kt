@@ -14,30 +14,37 @@ import android.widget.ImageView
 class ParallaxImageView : ImageView {
 
     companion object {
-        private const val maxRadians: Float = (Math.PI / 2.0F).toFloat()
+        private const val maxRadians: Float = (Math.PI / 2.0).toFloat()
         private const val minRadians: Float = -maxRadians
     }
 
     private val _component: ParallaxComponent
-    private var _rotateX: Float
-    private var _rotateY: Float
+    private var _rotateRadiansX: Float
+    private var _rotateRadiansY: Float
     private var _drawableWidthOffset: Float
     private var _drawableHeightOffset: Float
     private var _width: Int
     private var _height: Int
+    private var _isSupportParallax: Boolean
 
     init {
-        _rotateX = 0.0F
-        _rotateY = 0.0F
+        _isSupportParallax = false
+        _rotateRadiansX = 0.0F
+        _rotateRadiansY = 0.0F
         _drawableWidthOffset = 0.0F
         _drawableHeightOffset = 0.0F
         _width = -1
         _height = -1
         _component = object : ParallaxComponent {
             override fun updateRotateRadians(radiansX: Float, radiansY: Float, radiansZ: Float) {
-                _rotateX = validValue(radiansX + _rotateX, maxRadians, minRadians)
-                _rotateY = validValue(radiansY + _rotateY, maxRadians, minRadians)
-                postInvalidate()
+                var preRotate = _rotateRadiansX
+                _rotateRadiansX = validValue(radiansX + _rotateRadiansX, maxRadians, minRadians)
+                var changed = (preRotate != _rotateRadiansX)
+                preRotate = _rotateRadiansY
+                _rotateRadiansY = validValue(radiansY + _rotateRadiansY, maxRadians, minRadians)
+                changed = (changed || preRotate != _rotateRadiansY)
+                if (changed)
+                    postInvalidate()
             }
 
             override fun provideContext(): Context? = context
@@ -51,6 +58,7 @@ class ParallaxImageView : ImageView {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         GyroscopeSensorManager.ins.attach(_component)
+        _isSupportParallax = GyroscopeSensorManager.ins.isSupportGyroscope
     }
 
     override fun onDetachedFromWindow() {
@@ -61,35 +69,36 @@ class ParallaxImageView : ImageView {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         scaleType = ScaleType.CENTER_CROP
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        _drawableWidthOffset = 0.0F
-        _drawableHeightOffset = 0.0F
-        if (drawable != null) {
-            val it = drawable!!
-            var drawableWidth = it.intrinsicWidth
-            var drawableHeight = it.intrinsicHeight
-            if (drawableWidth > 0 && drawableHeight > 0) {
-                val drawableRatios = drawableWidth.toFloat() / drawableHeight
-                val viewRatios = measuredWidth.toFloat() / measuredHeight
-                if (drawableRatios > viewRatios) {
-                    //对齐高度
-                    drawableHeight = measuredHeight
-                    drawableWidth = (measuredHeight * drawableRatios + 0.5f).toInt()
-                } else {
-                    //对齐宽度
-                    drawableHeight = (measuredWidth / drawableRatios + 0.5f).toInt()
-                    drawableWidth = measuredWidth
+        if (_isSupportParallax) {
+            _drawableWidthOffset = 0.0F
+            _drawableHeightOffset = 0.0F
+            if (drawable != null) {
+                val it = drawable!!
+                var drawableWidth = it.intrinsicWidth
+                var drawableHeight = it.intrinsicHeight
+                if (drawableWidth > 0 && drawableHeight > 0) {
+                    val drawableRatios = drawableWidth.toFloat() / drawableHeight
+                    val viewRatios = measuredWidth.toFloat() / measuredHeight
+                    if (drawableRatios > viewRatios) {
+                        drawableHeight = measuredHeight
+                        drawableWidth = (measuredHeight * drawableRatios + 0.5f).toInt()
+                    } else {
+                        drawableHeight = (measuredWidth / drawableRatios + 0.5f).toInt()
+                        drawableWidth = measuredWidth
+                    }
+                    _drawableWidthOffset = (drawableWidth - measuredWidth) / 2.0f
+                    _drawableHeightOffset = (drawableHeight - measuredHeight) / 2.0f
                 }
-                _drawableWidthOffset = (drawableWidth - measuredWidth) / 2.0f
-                _drawableHeightOffset = (drawableHeight - measuredHeight) / 2.0f
             }
         }
     }
 
     override fun onDraw(canvas: Canvas?) {
-        if (_rotateX != 0.0F || _rotateY != 0.0F) {
+        if (_isSupportParallax && (_rotateRadiansX != 0.0F || _rotateRadiansY != 0.0F)) {
             canvas?.save()
-            canvas?.translate(validValue(_drawableWidthOffset * _rotateY, _drawableWidthOffset, -_drawableWidthOffset),
-                    validValue(_drawableHeightOffset * _rotateX, _drawableHeightOffset, -_drawableHeightOffset)
+            canvas?.translate(
+                    validValue(_drawableWidthOffset * _rotateRadiansY, _drawableWidthOffset, -_drawableWidthOffset),
+                    validValue(_drawableHeightOffset * _rotateRadiansX, _drawableHeightOffset, -_drawableHeightOffset)
             )
             super.onDraw(canvas)
             canvas?.restore()

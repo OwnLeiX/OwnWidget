@@ -19,9 +19,12 @@ class GyroscopeSensorManager private constructor() {
         val ins: GyroscopeSensorManager by lazy { GyroscopeSensorManager() }
     }
 
+    var isSupportGyroscope: Boolean
+        private set
+
+    private var _isRegistered: Boolean
     private var _lastTimeStamp: Long
     private val _nanoseconds2Seconds: Float
-    private var _isRegistered: Boolean
 
     private val _attachedComponents: LinkedBlockingQueue<ParallaxComponent>
 
@@ -32,6 +35,7 @@ class GyroscopeSensorManager private constructor() {
         _lastTimeStamp = 0L
         _nanoseconds2Seconds = 1.0f / 1000000000.0f
         _isRegistered = false
+        isSupportGyroscope = false
         _attachedComponents = LinkedBlockingQueue()
         _sensorListener = object : SensorEventListener2 {
 
@@ -63,26 +67,40 @@ class GyroscopeSensorManager private constructor() {
     }
 
     @MainThread
+    fun init(context: Context): Boolean {
+        if (!this@GyroscopeSensorManager::_sensorManager.isInitialized)
+            initSensorManager(context)
+        return isSupportGyroscope
+    }
+
+    @MainThread
     fun attach(cmp: ParallaxComponent) {
         if (!this@GyroscopeSensorManager::_sensorManager.isInitialized)
             initSensorManager(cmp.provideContext())
-        _attachedComponents.offer(cmp)
-        if (!_isRegistered)
-            registerListener()
+        if (isSupportGyroscope) {
+            _attachedComponents.offer(cmp)
+            if (!_isRegistered)
+                registerListener()
+        }
     }
 
     @MainThread
     fun detach(cmp: ParallaxComponent) {
-        _attachedComponents.remove(cmp)
-        if (_attachedComponents.size == 0 && _isRegistered)
-            unregisterListener()
+        if (isSupportGyroscope) {
+            _attachedComponents.remove(cmp)
+            if (_attachedComponents.size == 0 && _isRegistered)
+                unregisterListener()
+        }
     }
 
     @MainThread
     private fun initSensorManager(context: Context?) {
         val service = context?.applicationContext?.getSystemService(Context.SENSOR_SERVICE)
-        if (service is SensorManager)
+        if (service is SensorManager) {
             _sensorManager = service
+            val sensorList = _sensorManager.getSensorList(Sensor.TYPE_GYROSCOPE)
+            isSupportGyroscope = sensorList?.isNotEmpty() ?: false
+        }
     }
 
     @MainThread
